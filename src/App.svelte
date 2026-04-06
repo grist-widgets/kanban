@@ -105,7 +105,7 @@
   }
 
   function updateLaneItems(laneId, items) {
-    const nextBoard = cloneBoard(board);
+    const nextBoard = cloneBoard(overrideBoard ?? baseBoard);
     const lane = nextBoard.find((entry) => entry.id === laneId);
     if (!lane) {
       return nextBoard;
@@ -125,17 +125,17 @@
   }
 
   function handleFinalize(laneId, event) {
-    const nextBoard = updateLaneItems(laneId, event.detail.items);
-    queuePersist(nextBoard);
+    updateLaneItems(laneId, event.detail.items);
+    queuePersist();
   }
 
-  function queuePersist(nextBoard) {
+  function queuePersist() {
     if (saveTimer) {
       clearTimeout(saveTimer);
     }
 
     saveTimer = setTimeout(() => {
-      void persistBoard(nextBoard);
+      void persistBoard(cloneBoard(overrideBoard ?? baseBoard));
     }, SAVE_DEBOUNCE_MS);
   }
 

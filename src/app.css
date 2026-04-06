@@ -164,7 +164,7 @@ h1 {
   gap: 12px;
   min-height: 220px;
   padding: 14px;
-  border-radius: 28px;
+  border-radius: 18px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.72)),
     var(--lane-surface);
@@ -217,7 +217,7 @@ h1 {
 }
 
 .active-dropzone {
-  border-radius: 22px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.56);
 }
 
@@ -338,7 +338,7 @@ h1 {
   min-height: 120px;
   place-items: center;
   border: 1px dashed rgba(26, 34, 51, 0.12);
-  border-radius: 22px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.45);
   color: #75819a;
 }
