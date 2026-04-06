@@ -371,23 +371,36 @@ button {
   :root {
     --card-surface: linear-gradient(
         180deg,
-        color-mix(in srgb, var(--grist-theme-bg-default, #1c2128) 92%, white 8%),
-        color-mix(in srgb, var(--grist-theme-bg-default, #1c2128) 84%, white 16%)
+        color-mix(in srgb, var(--grist-theme-bg-default, #1c2128) 70%, white 30%),
+        color-mix(in srgb, var(--grist-theme-bg-default, #1c2128) 78%, white 22%)
       ),
       linear-gradient(
         180deg,
-        color-mix(in srgb, transparent 88%, var(--card-accent) 12%),
-        color-mix(in srgb, transparent 78%, var(--card-accent) 22%)
+        color-mix(in srgb, transparent 92%, var(--card-accent) 8%),
+        color-mix(in srgb, transparent 84%, var(--card-accent) 16%)
       );
     --card-border: color-mix(
       in srgb,
-      var(--grist-theme-table-body-border, rgba(255, 255, 255, 0.16)) 45%,
-      var(--card-accent) 55%
+      var(--grist-theme-table-body-border, rgba(255, 255, 255, 0.2)) 38%,
+      var(--card-accent) 62%
     );
     --card-hover-border: color-mix(
       in srgb,
-      var(--grist-theme-table-body-border, rgba(255, 255, 255, 0.14)) 25%,
-      var(--card-accent) 75%
+      var(--grist-theme-table-body-border, rgba(255, 255, 255, 0.16)) 18%,
+      var(--card-accent) 82%
     );
+  }
+
+  .card {
+    box-shadow:
+      0 14px 30px rgba(0, 0, 0, 0.34),
+      0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  }
+
+  .card:hover,
+  .card:focus-visible {
+    box-shadow:
+      0 20px 38px rgba(0, 0, 0, 0.4),
+      0 1px 0 rgba(255, 255, 255, 0.1) inset;
   }
 }
