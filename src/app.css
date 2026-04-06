@@ -118,8 +118,8 @@ button {
   border-radius: 18px;
   background: color-mix(
     in srgb,
-    var(--grist-theme-page-panels-main-panel-bg, #ffffff) 88%,
-    var(--grist-theme-text, #1a2233) 12%
+    var(--grist-theme-page-panels-main-panel-bg, #ffffff) 94%,
+    var(--grist-theme-text, #1a2233) 6%
   );
   border: 1px solid
     color-mix(
