@@ -168,6 +168,7 @@ button {
 
 .lane-dropzone-shell {
   position: relative;
+  min-height: 72px;
 }
 
 .lane-dropzone {
@@ -180,6 +181,10 @@ button {
     background-color 180ms ease,
     border-color 180ms ease,
     transform 180ms ease;
+}
+
+.lane-dropzone-empty {
+  min-height: 72px;
 }
 
 .active-dropzone {

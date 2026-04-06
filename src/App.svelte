@@ -298,6 +298,7 @@
             <div class="lane-dropzone-shell">
               <div
                 aria-label={lane.label}
+                class:lane-dropzone-empty={lane.items.length === 0}
                 class="lane-dropzone"
                 use:dndzone={{
                   items: lane.items,
