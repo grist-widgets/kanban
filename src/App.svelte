@@ -295,72 +295,74 @@
               </div>
             </header>
 
-            <div
-              aria-label={lane.label}
-              class="lane-dropzone"
-              use:dndzone={{
-                items: lane.items,
-                type: BOARD_TYPE,
-                flipDurationMs: FLIP_DURATION_MS,
-                dropTargetClasses: ["active-dropzone"],
-                dragDisabled: !canWrite,
-                dropFromOthersDisabled: !canWrite,
-                centreDraggedOnCursor: true,
-                useCursorForDetection: true,
-                transformDraggedElement: dragStyle,
-              }}
-              on:consider={(event) => handleConsider(lane.id, event)}
-              on:finalize={(event) => handleFinalize(lane.id, event)}
-            >
+            <div class="lane-dropzone-shell">
+              <div
+                aria-label={lane.label}
+                class="lane-dropzone"
+                use:dndzone={{
+                  items: lane.items,
+                  type: BOARD_TYPE,
+                  flipDurationMs: FLIP_DURATION_MS,
+                  dropTargetClasses: ["active-dropzone"],
+                  dragDisabled: !canWrite,
+                  dropFromOthersDisabled: !canWrite,
+                  centreDraggedOnCursor: true,
+                  useCursorForDetection: true,
+                  transformDraggedElement: dragStyle,
+                }}
+                on:consider={(event) => handleConsider(lane.id, event)}
+                on:finalize={(event) => handleFinalize(lane.id, event)}
+              >
+                {#each lane.items as card (card.id)}
+                  <button
+                    aria-label={card.ariaLabel}
+                    animate:flip={{ duration: FLIP_DURATION_MS }}
+                    class:selected={selectedRowId === card.id}
+                    class="card"
+                    style={card.style}
+                    type="button"
+                    on:click={() => focusCard(card.id)}
+                    on:keydown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        void focusCard(card.id);
+                      }
+                    }}
+                  >
+                    <div class="card-accent"></div>
+                    <div class="card-body">
+                      <h3>{card.title}</h3>
+
+                      {#if card.description}
+                        <p class="card-description">{card.description}</p>
+                      {/if}
+
+                      {#if card.tags.length}
+                        <div class="tag-row">
+                          {#each card.tags as tag}
+                            <span class="tag">{tag}</span>
+                          {/each}
+                        </div>
+                      {/if}
+
+                      <footer class="card-footer">
+                        {#if card.assignee}
+                          <span class="person-pill">{card.assignee}</span>
+                        {/if}
+                        {#if card.dueText}
+                          <span class="due-pill">{card.dueText}</span>
+                        {/if}
+                      </footer>
+                    </div>
+                  </button>
+                {/each}
+              </div>
+
               {#if lane.items.length === 0}
-                <div class="empty-stack">
+                <div class="empty-stack" aria-hidden="true">
                   <p>Drop a card here</p>
                 </div>
               {/if}
-
-              {#each lane.items as card (card.id)}
-                <button
-                  aria-label={card.ariaLabel}
-                  animate:flip={{ duration: FLIP_DURATION_MS }}
-                  class:selected={selectedRowId === card.id}
-                  class="card"
-                  style={card.style}
-                  type="button"
-                  on:click={() => focusCard(card.id)}
-                  on:keydown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      void focusCard(card.id);
-                    }
-                  }}
-                >
-                  <div class="card-accent"></div>
-                  <div class="card-body">
-                    <h3>{card.title}</h3>
-
-                    {#if card.description}
-                      <p class="card-description">{card.description}</p>
-                    {/if}
-
-                    {#if card.tags.length}
-                      <div class="tag-row">
-                        {#each card.tags as tag}
-                          <span class="tag">{tag}</span>
-                        {/each}
-                      </div>
-                    {/if}
-
-                    <footer class="card-footer">
-                      {#if card.assignee}
-                        <span class="person-pill">{card.assignee}</span>
-                      {/if}
-                      {#if card.dueText}
-                        <span class="due-pill">{card.dueText}</span>
-                      {/if}
-                    </footer>
-                  </div>
-                </button>
-              {/each}
             </div>
           </section>
         {/each}

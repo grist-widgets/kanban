@@ -166,6 +166,10 @@ button {
     );
 }
 
+.lane-dropzone-shell {
+  position: relative;
+}
+
 .lane-dropzone {
   display: grid;
   gap: 10px;
@@ -319,9 +323,12 @@ button {
 }
 
 .empty-stack {
+  position: absolute;
+  inset: 0;
   min-height: 72px;
   width: 100%;
   place-items: center;
+  pointer-events: none;
   border: 1px dashed
     color-mix(
       in srgb,
