@@ -282,7 +282,6 @@
           <section class="lane" style={`${lane.style}; --lane-order: ${laneIndex};`}>
             <header class="lane-header">
               <div>
-                <p class="lane-kicker">List {String(laneIndex + 1).padStart(2, "0")}</p>
                 <h2>{lane.label}</h2>
               </div>
 

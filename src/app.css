@@ -101,7 +101,11 @@ button {
   min-height: 220px;
   padding: 14px;
   border-radius: 18px;
-  background: transparent;
+  background: color-mix(
+    in srgb,
+    var(--grist-theme-page-panels-main-panel-bg, #ffffff) 88%,
+    var(--grist-theme-text, #1a2233) 12%
+  );
   border: 1px solid
     color-mix(
       in srgb,
@@ -120,15 +124,6 @@ button {
   align-items: flex-start;
 }
 
-.lane-kicker {
-  margin: 0 0 4px;
-  color: color-mix(in srgb, var(--lane-accent) 72%, var(--grist-theme-text-light, #546174));
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
 .lane h2,
 .lane-composer h2,
 .empty-panel h2 {
@@ -138,7 +133,7 @@ button {
 }
 
 .lane h2 {
-  color: var(--lane-accent);
+  color: var(--grist-theme-text, #1a2233);
 }
 
 .lane-count {
@@ -159,7 +154,9 @@ button {
 .lane-dropzone {
   display: grid;
   gap: 10px;
-  min-height: 120px;
+  min-height: 0;
+  align-content: start;
+  align-items: start;
   transition:
     background-color 180ms ease,
     border-color 180ms ease,
@@ -303,7 +300,8 @@ button {
 }
 
 .empty-stack {
-  min-height: 120px;
+  min-height: 72px;
+  width: 100%;
   place-items: center;
   border: 1px dashed
     color-mix(
