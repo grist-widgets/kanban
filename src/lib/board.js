@@ -1,6 +1,5 @@
 export const EMPTY_LANE_ID = "__grist_kanban_empty__";
 export const EMPTY_LANE_LABEL = "Unassigned";
-export const LANE_ORDER_OPTION_KEY = "laneOrder";
 
 export const BOARD_COLUMNS = [
   {
@@ -48,13 +47,6 @@ export const BOARD_COLUMNS = [
     description: "Optional tag or choice-list field.",
     optional: true,
   },
-  {
-    name: "Accent",
-    title: "Accent color",
-    description: "Optional CSS color or label used to tint a card.",
-    type: "Text",
-    optional: true,
-  },
 ];
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -64,8 +56,13 @@ const dateFormatter = new Intl.DateTimeFormat("en-US", {
 
 export function createDemoPayload() {
   return {
-    options: {
-      [LANE_ORDER_OPTION_KEY]: ["Backlog", "In Progress", "Review", "Done"],
+    statusSpec: {
+      choices: [
+        { value: "Backlog", color: "#7a56d8" },
+        { value: "In Progress", color: "#1c8c72" },
+        { value: "Review", color: "#e05947" },
+        { value: "Done", color: "#2664eb" },
+      ],
     },
     mappings: Object.fromEntries(
       BOARD_COLUMNS.map((column) => [column.name, column.name]),
@@ -80,7 +77,6 @@ export function createDemoPayload() {
         Assignee: "Sam",
         Due: new Date("2026-04-10T12:00:00Z"),
         Tags: ["UX", "Discovery"],
-        Accent: "#ff8a53",
       },
       {
         id: 2,
@@ -91,7 +87,6 @@ export function createDemoPayload() {
         Assignee: "Svelte",
         Due: new Date("2026-04-08T12:00:00Z"),
         Tags: ["Data"],
-        Accent: "#1c8c72",
       },
       {
         id: 3,
@@ -111,7 +106,6 @@ export function createDemoPayload() {
         Assignee: "Motion",
         Due: new Date("2026-04-12T12:00:00Z"),
         Tags: ["Animation"],
-        Accent: "#e05947",
       },
       {
         id: 5,
@@ -121,21 +115,28 @@ export function createDemoPayload() {
         Description: "Keep the repo usable as a static custom widget.",
         Assignee: "Docs",
         Tags: ["Docs"],
-        Accent: "#2664eb",
       },
     ],
   };
 }
 
-export function buildBoard(records, laneOrder = []) {
-  const cards = (records ?? []).map((record, index) => createCard(record, index));
+export function buildBoard(records, statusSpec = null) {
+  const colorByValue = new Map(
+    (statusSpec?.choices ?? []).map((choice) => [choice.value, choice.color ?? null]),
+  );
+
+  const cards = (records ?? []).map((record, index) =>
+    createCard(record, index, colorByValue.get(normalizeLaneValue(record.Status))),
+  );
   const detectedOrder = cards
     .map((card) => card.laneValue)
     .filter((value) => value !== null);
 
-  const lanes = mergeLaneOrder(laneOrder, detectedOrder).map((value) =>
-    createLane(value),
+  const orderedValues = mergeLaneOrder(
+    (statusSpec?.choices ?? []).map((choice) => choice.value),
+    detectedOrder,
   );
+  const lanes = orderedValues.map((value) => createLane(value, colorByValue.get(value)));
 
   if (cards.some((card) => card.laneValue === null)) {
     lanes.push(createLane(null));
@@ -312,14 +313,13 @@ export function toTagList(value) {
   return text ? [text] : [];
 }
 
-function createCard(record, index) {
+function createCard(record, index, statusColor) {
   const laneValue = normalizeLaneValue(record.Status);
   const title = toText(record.Title) || `Row ${record.id}`;
   const description = toText(record.Description);
   const assignee = toText(record.Assignee);
   const dueText = formatDueDate(record.Due);
   const tags = toTagList(record.Tags);
-  const hueSource = laneValue ?? title;
 
   return {
     id: record.id,
@@ -332,7 +332,7 @@ function createCard(record, index) {
     tags,
     position: toNumber(record.Position),
     sortIndex: index,
-    style: buildCardStyle(record.Accent, hueSource),
+    style: buildCardStyle(statusColor, laneValue ?? title),
     ariaLabel: [
       title,
       assignee ? `assigned to ${assignee}` : null,
@@ -343,32 +343,21 @@ function createCard(record, index) {
   };
 }
 
-function createLane(value) {
+function createLane(value, color = null) {
   const label = value ?? EMPTY_LANE_LABEL;
-  const hue = hueFromString(label);
+  const accent = color?.trim() || fallbackAccent(label);
 
   return {
     id: value ?? EMPTY_LANE_ID,
     value,
     label,
     items: [],
-    style: [
-      `--lane-hue: ${hue}`,
-      `--lane-accent: hsl(${hue} 72% 45%)`,
-      `--lane-surface: hsl(${hue} 80% 97%)`,
-      `--lane-border: hsl(${hue} 38% 83%)`,
-    ].join("; "),
+    style: [`--lane-accent: ${accent}`].join("; "),
   };
 }
 
-function buildCardStyle(accentValue, fallback) {
-  const accentText = toText(accentValue).trim();
-  if (accentText) {
-    return `--card-accent: ${accentText};`;
-  }
-
-  const hue = hueFromString(fallback);
-  return `--card-accent: hsl(${hue} 58% 48%);`;
+function buildCardStyle(statusColor, fallback) {
+  return `--card-accent: ${statusColor?.trim() || fallbackAccent(fallback)};`;
 }
 
 function compareCards(left, right) {
@@ -431,4 +420,51 @@ function hueFromString(value) {
     hash |= 0;
   }
   return Math.abs(hash) % 360;
+}
+
+function fallbackAccent(value) {
+  return `hsl(${hueFromString(value)} 58% 48%)`;
+}
+
+export function buildStatusSpec(columnRecord, records = []) {
+  const options = safeParse(columnRecord?.widgetOptions) ?? {};
+  const configuredChoices = Array.isArray(options.choices)
+    ? options.choices.map((choice) => String(choice))
+    : [];
+  const choiceOptions = isRecord(options.choiceOptions) ? options.choiceOptions : {};
+  const discoveredChoices = (records ?? [])
+    .map((record) => normalizeLaneValue(record.Status))
+    .filter((value) => value !== null);
+
+  return {
+    choices: mergeLaneOrder(configuredChoices, discoveredChoices).map((value) => ({
+      value,
+      color: readChoiceColor(choiceOptions[value]),
+    })),
+  };
+}
+
+function readChoiceColor(choiceOption) {
+  if (!isRecord(choiceOption)) {
+    return null;
+  }
+
+  return (
+    toText(choiceOption.fillColor).trim()
+    || toText(choiceOption.backgroundColor).trim()
+    || toText(choiceOption.color).trim()
+    || null
+  );
+}
+
+function safeParse(value) {
+  try {
+    return value ? JSON.parse(value) : null;
+  } catch {
+    return null;
+  }
+}
+
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

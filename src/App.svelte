@@ -4,16 +4,13 @@
   import { onMount } from "svelte";
   import {
     BOARD_COLUMNS,
-    LANE_ORDER_OPTION_KEY,
-    applyBoardToRecords,
     buildBoard,
+    buildStatusSpec,
     buildUpdatePayload,
     cloneBoard,
     createDemoPayload,
     createRecordFields,
-    extractLaneOrder,
     getMappedColumnId,
-    mergeLaneOrder,
   } from "./lib/board.js";
 
   const BOARD_TYPE = "kanban-card";
@@ -25,24 +22,21 @@
   let interaction = null;
   let mappings = null;
   let mappedRecords = [];
-  let widgetOptions = {};
+  let statusSpec = { choices: [] };
   let selectedRowId = null;
   let overrideBoard = null;
   let gristApi = null;
   let saving = false;
   let saveError = "";
   let saveTimer = null;
-  let addListName = "";
-  let listEditorOpen = false;
+  let metadataRequestId = 0;
 
-  $: laneOrder = widgetOptions?.[LANE_ORDER_OPTION_KEY] ?? [];
-  $: baseBoard = buildBoard(mappedRecords, laneOrder);
+  $: baseBoard = buildBoard(mappedRecords, statusSpec);
   $: board = overrideBoard ?? baseBoard;
   $: hasRequiredMappings = Boolean(
     getMappedColumnId(mappings, "Title") && getMappedColumnId(mappings, "Status"),
   );
   $: hasPositionMapping = Boolean(getMappedColumnId(mappings, "Position"));
-  $: cardCount = board.reduce((sum, lane) => sum + lane.items.length, 0);
   $: canWrite = runtime === "grist" ? interaction?.accessLevel === "full" : true;
 
   onMount(() => {
@@ -62,7 +56,7 @@
       runtime = "demo";
       mappedRecords = demoPayload.records;
       mappings = demoPayload.mappings;
-      widgetOptions = demoPayload.options;
+      statusSpec = demoPayload.statusSpec;
       return;
     }
 
@@ -74,34 +68,63 @@
       columns: BOARD_COLUMNS,
     });
 
-    gristApi.onOptions((options, nextInteraction) => {
-      widgetOptions = options ?? {};
+    gristApi.onOptions((_options, nextInteraction) => {
       interaction = nextInteraction;
       overrideBoard = null;
     });
 
-    gristApi.onRecords((records, nextMappings) => {
+    gristApi.onRecords(async (records, nextMappings) => {
       mappings = nextMappings;
       mappedRecords = gristApi.mapColumnNames(records) ?? [];
       overrideBoard = null;
       saveError = "";
-
-      const statuses = (mappedRecords ?? [])
-        .map((record) => record.Status)
-        .filter((value) => typeof value === "string" && value.trim());
-      const mergedLaneOrder = mergeLaneOrder(laneOrder, statuses);
-      if (JSON.stringify(mergedLaneOrder) !== JSON.stringify(laneOrder)) {
-        widgetOptions = {
-          ...widgetOptions,
-          [LANE_ORDER_OPTION_KEY]: mergedLaneOrder,
-        };
-        void gristApi.setOption(LANE_ORDER_OPTION_KEY, mergedLaneOrder);
-      }
+      await refreshStatusSpec(nextMappings, mappedRecords);
     });
 
     gristApi.onRecord((record) => {
       selectedRowId = record?.id ?? null;
     });
+  }
+
+  async function refreshStatusSpec(nextMappings, records) {
+    const statusColumnId = getMappedColumnId(nextMappings, "Status");
+    if (!gristApi || !statusColumnId) {
+      statusSpec = buildStatusSpec(null, records);
+      return;
+    }
+
+    const requestId = ++metadataRequestId;
+
+    try {
+      const [tables, columns, tableId] = await Promise.all([
+        gristApi.docApi.fetchTable("_grist_Tables"),
+        gristApi.docApi.fetchTable("_grist_Tables_column"),
+        gristApi.selectedTable.getTableId(),
+      ]);
+
+      if (requestId !== metadataRequestId) {
+        return;
+      }
+
+      const tableRef = tables.id[tables.tableId.indexOf(tableId)];
+      const index = columns.id.findIndex(
+        (_id, columnIndex) =>
+          columns.parentId[columnIndex] === tableRef
+          && columns.colId[columnIndex] === statusColumnId,
+      );
+
+      if (index === -1) {
+        statusSpec = buildStatusSpec(null, records);
+        return;
+      }
+
+      const columnRecord = Object.fromEntries(
+        Object.keys(columns).map((field) => [field, columns[field][index]]),
+      );
+      statusSpec = buildStatusSpec(columnRecord, records);
+    } catch {
+      statusSpec = buildStatusSpec(null, records);
+    }
   }
 
   function updateLaneItems(laneId, items) {
@@ -143,11 +166,6 @@
     saveTimer = null;
 
     if (runtime === "demo") {
-      widgetOptions = {
-        ...widgetOptions,
-        [LANE_ORDER_OPTION_KEY]: extractLaneOrder(nextBoard),
-      };
-      mappedRecords = applyBoardToRecords(nextBoard, mappedRecords);
       overrideBoard = null;
       return;
     }
@@ -163,15 +181,6 @@
       const updates = buildUpdatePayload(nextBoard, mappedRecords, mappings);
       if (updates.length) {
         await gristApi.selectedTable.update(updates);
-      }
-
-      const nextLaneOrder = extractLaneOrder(nextBoard);
-      if (JSON.stringify(nextLaneOrder) !== JSON.stringify(laneOrder)) {
-        widgetOptions = {
-          ...widgetOptions,
-          [LANE_ORDER_OPTION_KEY]: nextLaneOrder,
-        };
-        await gristApi.setOption(LANE_ORDER_OPTION_KEY, nextLaneOrder);
       }
     } catch (error) {
       saveError = error instanceof Error ? error.message : String(error);
@@ -206,7 +215,6 @@
           Description: "",
           Assignee: "",
           Tags: [],
-          Accent: "",
         },
       ];
       return;
@@ -225,40 +233,6 @@
     }
   }
 
-  async function addLane() {
-    const nextLane = addListName.trim();
-    if (!nextLane) {
-      return;
-    }
-
-    const nextLaneOrder = mergeLaneOrder(laneOrder, [nextLane]);
-    widgetOptions = {
-      ...widgetOptions,
-      [LANE_ORDER_OPTION_KEY]: nextLaneOrder,
-    };
-
-    addListName = "";
-    listEditorOpen = false;
-    overrideBoard = null;
-
-    if (runtime === "grist") {
-      await gristApi?.setOption(LANE_ORDER_OPTION_KEY, nextLaneOrder);
-    }
-  }
-
-  async function removeLane(lane) {
-    const nextLaneOrder = laneOrder.filter((value) => value !== lane.value);
-    widgetOptions = {
-      ...widgetOptions,
-      [LANE_ORDER_OPTION_KEY]: nextLaneOrder,
-    };
-    overrideBoard = null;
-
-    if (runtime === "grist") {
-      await gristApi?.setOption(LANE_ORDER_OPTION_KEY, nextLaneOrder);
-    }
-  }
-
   function dragStyle(element) {
     element.style.boxShadow = "0 26px 60px rgba(15, 23, 42, 0.24)";
     element.style.rotate = "-1.25deg";
@@ -270,26 +244,6 @@
 </svelte:head>
 
 <main class="app-shell">
-  <section class="hero">
-    <div>
-      <p class="eyebrow">Svelte 5 Custom Widget</p>
-      <h1>Kanban board for Grist</h1>
-      <p class="lede">
-        Smooth card movement, animated list settling, and direct writes back to your Grist table.
-      </p>
-    </div>
-
-    <div class="status-cluster">
-      <span class="status-pill">{runtime === "demo" ? "Local preview" : "Connected to Grist"}</span>
-      <span class:warn-pill={!hasPositionMapping} class="meta-pill">
-        {hasPositionMapping ? "Order persists" : "Map Position to persist ordering"}
-      </span>
-      {#if saving}
-        <span class="meta-pill">Saving…</span>
-      {/if}
-    </div>
-  </section>
-
   {#if runtime === "loading"}
     <section class="panel empty-panel">
       <h2>Loading widget…</h2>
@@ -301,23 +255,6 @@
       <p>{errorMessage}</p>
     </section>
   {:else}
-    <section class="toolbar panel">
-      <div class="toolbar-copy">
-        <strong>{cardCount}</strong> cards across <strong>{board.length}</strong> lists
-      </div>
-
-      <div class="toolbar-actions">
-        {#if runtime === "demo"}
-          <span class="toolbar-note">
-            This preview runs with local sample data. Inside Grist, card moves write back to the table.
-          </span>
-        {/if}
-        {#if saveError}
-          <span class="error-note">{saveError}</span>
-        {/if}
-      </div>
-    </section>
-
     {#if runtime === "grist" && !hasRequiredMappings}
       <section class="panel empty-panel">
         <h2>Map the board columns first</h2>
@@ -328,8 +265,14 @@
       </section>
     {:else if board.length === 0}
       <section class="panel empty-panel">
-        <h2>No lists yet</h2>
-        <p>Add a list below, or create rows in Grist with a Status value.</p>
+        <h2>No lanes yet</h2>
+        <p>Add choices to the mapped Status column, or create rows with Status values.</p>
+      </section>
+    {/if}
+
+    {#if saveError}
+      <section class="panel empty-panel compact-panel">
+        <p>{saveError}</p>
       </section>
     {/if}
 
@@ -348,11 +291,6 @@
                 {#if canWrite}
                   <button class="ghost-button" type="button" on:click={() => createCard(lane)}>
                     Add card
-                  </button>
-                {/if}
-                {#if canWrite && lane.items.length === 0 && lane.value !== null}
-                  <button class="icon-button" type="button" on:click={() => removeLane(lane)}>
-                    Remove
                   </button>
                 {/if}
               </div>
@@ -427,35 +365,6 @@
             </div>
           </section>
         {/each}
-
-        <section class="lane lane-composer panel">
-          <div class="lane-composer-body">
-            <h2>Create list</h2>
-            <p>Persist an empty lane even before any card lands in it.</p>
-
-            {#if listEditorOpen}
-              <div class="composer-form">
-                <input
-                  bind:value={addListName}
-                  maxlength="60"
-                  placeholder="For example: QA"
-                  type="text"
-                  on:keydown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void addLane();
-                    }
-                  }}
-                />
-                <button class="solid-button" type="button" on:click={addLane}>Save list</button>
-              </div>
-            {:else}
-              <button class="solid-button" type="button" on:click={() => (listEditorOpen = true)}>
-                Add list
-              </button>
-            {/if}
-          </div>
-        </section>
       </div>
     </section>
   {/if}
