@@ -118,8 +118,8 @@ button {
   border-radius: 18px;
   background: color-mix(
     in srgb,
-    var(--grist-theme-page-panels-main-panel-bg, #ffffff) 94%,
-    var(--grist-theme-text, #1a2233) 6%
+    var(--grist-theme-page-panels-main-panel-bg, #ffffff) 97%,
+    var(--grist-theme-text, #1a2233) 3%
   );
   border: 1px solid
     color-mix(
@@ -216,14 +216,17 @@ button {
     0 1px 0 rgba(255, 255, 255, 0.05) inset;
 }
 
-.card.selected {
+.card.selected,
+.card.selected:hover,
+.card.selected:focus-visible {
+  transform: translateY(-1px);
   border-color: color-mix(
     in srgb,
     var(--grist-theme-cursor, #2664eb) 70%,
     var(--grist-theme-table-body-border, rgba(38, 100, 235, 0.22))
   );
   box-shadow:
-    0 16px 28px rgba(38, 100, 235, 0.12),
+    0 18px 32px rgba(38, 100, 235, 0.18),
     0 0 0 1px rgba(38, 100, 235, 0.22);
 }
 
