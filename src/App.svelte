@@ -23,7 +23,6 @@
   let mappings = null;
   let mappedRecords = [];
   let statusSpec = { choices: [] };
-  let selectedRowId = null;
   let overrideBoard = null;
   let gristApi = null;
   let saving = false;
@@ -81,9 +80,6 @@
       await refreshStatusSpec(nextMappings, mappedRecords);
     });
 
-    gristApi.onRecord((record) => {
-      selectedRowId = record?.id ?? null;
-    });
   }
 
   async function refreshStatusSpec(nextMappings, records) {
@@ -191,7 +187,6 @@
   }
 
   async function focusCard(cardId) {
-    selectedRowId = cardId;
     if (runtime === "grist" && gristApi?.setCursorPos) {
       await gristApi.setCursorPos({ rowId: cardId });
     }
@@ -318,7 +313,6 @@
                   <button
                     aria-label={card.ariaLabel}
                     animate:flip={{ duration: FLIP_DURATION_MS }}
-                    class:selected={selectedRowId === card.id}
                     class="card"
                     style={card.style}
                     type="button"
